@@ -187,12 +187,32 @@ func generateAppImage(options *GenerateAppImageOptions) error {
 	s.CD(options.BuildDir)
 	linuxdeployAppImage := filepath.Join(options.BuildDir, fmt.Sprintf("linuxdeploy-%s.AppImage", arch))
 
+	// Add debug information before executing linuxdeploy
+	log(p, fmt.Sprintf("Current architecture: %s, mapped to: %s", runtime.GOARCH, arch))
+
+	// Check if file exists and is executable
+	if !s.EXISTS(linuxdeployAppImage) {
+		return fmt.Errorf("linuxdeploy AppImage not found at: %s", linuxdeployAppImage)
+	}
+
+	fileInfo, err := os.Stat(linuxdeployAppImage)
+	if err != nil {
+		return fmt.Errorf("error checking linuxdeploy AppImage: %w", err)
+	}
+
+	log(p, fmt.Sprintf("linuxdeploy AppImage size: %d bytes", fileInfo.Size()))
+
+	// Try to get file type information
+	output, err := s.EXEC(fmt.Sprintf("file %s", linuxdeployAppImage))
+	if err == nil {
+		log(p, fmt.Sprintf("File type: %s", output))
+	}
+
 	cmd := fmt.Sprintf("%s --appimage-extract-and-run --appdir %s --output appimage --plugin gtk", linuxdeployAppImage, appDir)
 	s.SETENV("DEPLOY_GTK_VERSION", DeployGtkVersion)
-	output, err := s.EXEC(cmd)
+	output, err = s.EXEC(cmd)
 	if err != nil {
-		println(output)
-		return err
+		return fmt.Errorf("failed to execute linuxdeploy: %w\nOutput: %s", err, output)
 	}
 
 	// Move file to output directory
